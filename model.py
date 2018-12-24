@@ -177,9 +177,9 @@ class Pix2Pix:
         # G_loss_GAN = tf.reduce_mean(-tf.log(d_fake + EPS))
         self.G_loss_GAN = tf.reduce_mean(-tf.log(d_fake + EPS))
         # G_loss_L1 = tf.reduce_mean(tf.abs(self.target_img - gen_img))
-        self.G_loss_L1 = tf.reduce_mean(tf.abs(self.target_img - gen_img))
+        # self.G_loss_L1 = tf.reduce_mean(tf.abs(self.target_img - gen_img))
         # self.G_loss = G_loss_GAN + G_loss_L1 * self.l1_weight
-        self.G_loss = self.G_loss_GAN + self.G_loss_L1 * self.l1_weight
+        self.G_loss = self.G_loss_GAN * self.l1_weight
 
         self.train_op_discrim = tf.train.AdamOptimizer(self.learning_rate, beta1=0.5).minimize(self.D_loss, var_list=self.discrim_params)
         self.train_op_gen = tf.train.AdamOptimizer(self.learning_rate, beta1=0.5).minimize(self.G_loss, var_list=self.gen_params)
@@ -257,7 +257,8 @@ class Pix2Pix:
         return h16
 
     def discriminate(self, input_img, target):
-        img_concat = tf.concat([input_img, target], axis=3)
+        #img_concat = tf.concat([input_img, target], axis=3)
+        img_concat = input_img
 
         h1 = tf.nn.conv2d(img_concat, self.D_W1, strides=[1, 2, 2, 1], padding='SAME')  # [?,256,256,6] -> [?,128,128,64]
         h1 = self.D_bn1(h1)
@@ -361,9 +362,9 @@ class Pix2Pix:
     # Train Generator and return the loss
     def train_gen(self, input_img, target_img):
         # _, loss_val_G = self.sess.run([self.train_op_gen, self.G_loss], feed_dict={self.input_img: input_img, self.target_img: target_img})
-        _, loss_val_GAN, loss_val_L1 = self.sess.run([self.train_op_gen, self.G_loss_GAN, self.G_loss_L1], feed_dict={self.input_img: input_img, self.target_img: target_img})
+        _, loss_val_GAN = self.sess.run([self.train_op_gen, self.G_loss_GAN], feed_dict={self.input_img: input_img, self.target_img: target_img})
         # return loss_val_G
-        return loss_val_GAN, loss_val_L1
+        return loss_val_GAN
 
     # Train Discriminator and return the loss
     def train_discrim(self, input_img, target_img):
