@@ -55,7 +55,7 @@ def main():
     else:
         sess.run(tf.global_variables_initializer())
 
-    input_img = tf.placeholder(tf.float32, [batch_size] + [WIDTH, HEIGHT, 3])
+    input_img = tf.placeholder(tf.float32, [batch_size] + [472, 472, 3])
     target_img = tf.placeholder(tf.float32, [batch_size] + [WIDTH, HEIGHT, 3])
     real_dataset = ImageCollector("../../../new_env_dataset", 1, 64, batch_size)  # Real data
     simul_dataset = ImageCollector("../../../simul_dataset__", 1, 64, batch_size)
@@ -65,8 +65,8 @@ def main():
     #########################
     dstep_loss = tf.placeholder(tf.float32)
     gstep_loss = tf.placeholder(tf.float32)
-    image_shaped_input = tf.reshape(input_img, [-1, WIDTH, HEIGHT, 3])
-    image_shaped_output = tf.reshape(input_img, [-1, WIDTH, HEIGHT, 3])
+    image_shaped_input = tf.reshape(tf.image.resize_images(input_img, [WIDTH, HEIGHT]), [-1, WIDTH, HEIGHT, 3])
+    image_shaped_output = tf.reshape(target_img, [-1, WIDTH, HEIGHT, 3])
 
     tf.summary.scalar('d_step_loss', dstep_loss)
     tf.summary.scalar('g_step_loss', gstep_loss)
@@ -94,7 +94,7 @@ def main():
             print('Step: [', i, '/', iter, '], D_loss: ', loss_D, ', G_loss_GAN: ', loss_GAN)
 
         if i % 500 == 0:
-            generated_samples = model.sample_generator(rgb_img, batch_size=batch_size)
+            generated_samples = model.sample_generator(simul_img, batch_size=batch_size)
 
             summary = sess.run(summary_merged, feed_dict={dstep_loss: loss_D,
                                                           gstep_loss: loss_GAN,
