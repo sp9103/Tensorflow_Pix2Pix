@@ -6,7 +6,6 @@ sys.path.insert(0, '../../')
 
 import tensorflow as tf
 import numpy as np
-import dbread as db
 from model import Pix2Pix
 import scipy.misc
 from data_factory.dataset_factory import ImageCollector
@@ -15,7 +14,6 @@ parser = argparse.ArgumentParser(description='Easy Implementation of Pix2Pix + T
 
 # parameters
 parser.add_argument('--out_dir', type=str, default='./output')
-parser.add_argument('--epochs', type=int, default=200)
 parser.add_argument('--batch_size', type=int, default=1)
 HEIGHT = 256
 WIDTH = 256
@@ -36,11 +34,8 @@ def save_visualization(X, nh_nw, save_path='./vis/sample.jpg'):
 
 def main():
     global_epoch = tf.Variable(0, trainable=False, name='global_step')
-    global_epoch_increase = tf.assign(global_epoch, tf.add(global_epoch, 1))
 
     args = parser.parse_args()
-    direction = args.direction
-    filelist_train = args.train
     result_dir = args.out_dir + '/result'
     ckpt_dir = args.out_dir + '/checkpoint'
 
@@ -49,13 +44,7 @@ def main():
     if not os.path.exists(ckpt_dir):
         os.makedirs(ckpt_dir)
 
-    total_epoch = args.epochs
     batch_size = args.batch_size
-
-    input_img = tf.placeholder(tf.float32, [batch_size] + [WIDTH, HEIGHT, 3])
-    target_img = tf.placeholder(tf.float32, [batch_size] + [WIDTH, HEIGHT, 3])
-    real_dataset = ImageCollector("./new_env_dataset", 1, 64, batch_size)  # Real data
-    simul_dataset = ImageCollector("./simulator_data", 1, 64, batch_size, bCollectSeg=True)
 
     sess = tf.Session()
     model = Pix2Pix(sess, batch_size)
@@ -67,6 +56,11 @@ def main():
         saver.restore(sess, ckpt.model_checkpoint_path)
     else:
         sess.run(tf.global_variables_initializer())
+
+    input_img = tf.placeholder(tf.float32, [batch_size] + [WIDTH, HEIGHT, 3])
+    target_img = tf.placeholder(tf.float32, [batch_size] + [WIDTH, HEIGHT, 3])
+    real_dataset = ImageCollector("../../../new_env_dataset", 1, 64, batch_size)  # Real data
+    simul_dataset = ImageCollector("../../../simul_dataset__", 1, 64, batch_size, bCollectSeg=True)
 
     #########################
     # tensorboard summary   #
@@ -105,7 +99,7 @@ def main():
             writer.add_summary(summary, i)
 
         if i % 5000 == 0:
-            saver.save(sess, ckpt_dir + '/model_epoch' + str(epoch).zfill(3))
+            saver.save(sess, ckpt_dir + '/model_iter' + str(i))
 
 
 if __name__ == "__main__":

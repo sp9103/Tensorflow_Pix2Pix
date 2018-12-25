@@ -62,7 +62,7 @@ class Pix2Pix:
         self.ch_G15 = 64
         self.ch_G16 = 3
         # Discrim
-        self.ch_D0 = 6
+        self.ch_D0 = 3
         self.ch_D1 = 64
         self.ch_D2 = 128
         self.ch_D3 = 256
@@ -169,8 +169,8 @@ class Pix2Pix:
 
         gen_img = self.generate(self.input_img)
 
-        d_real = self.discriminate(self.input_img, self.target_img)
-        d_fake = self.discriminate(self.input_img, gen_img)
+        d_real = self.discriminate(self.target_img)
+        d_fake = self.discriminate(gen_img)
 
         self.D_loss = tf.reduce_mean(-(tf.log(d_real + EPS) + tf.log(1 - d_fake + EPS)))
 
@@ -179,7 +179,7 @@ class Pix2Pix:
         # G_loss_L1 = tf.reduce_mean(tf.abs(self.target_img - gen_img))
         # self.G_loss_L1 = tf.reduce_mean(tf.abs(self.target_img - gen_img))
         # self.G_loss = G_loss_GAN + G_loss_L1 * self.l1_weight
-        self.G_loss = self.G_loss_GAN * self.l1_weight
+        self.G_loss = self.G_loss_GAN
 
         self.train_op_discrim = tf.train.AdamOptimizer(self.learning_rate, beta1=0.5).minimize(self.D_loss, var_list=self.discrim_params)
         self.train_op_gen = tf.train.AdamOptimizer(self.learning_rate, beta1=0.5).minimize(self.G_loss, var_list=self.gen_params)
@@ -256,11 +256,8 @@ class Pix2Pix:
 
         return h16
 
-    def discriminate(self, input_img, target):
-        #img_concat = tf.concat([input_img, target], axis=3)
-        img_concat = input_img
-
-        h1 = tf.nn.conv2d(img_concat, self.D_W1, strides=[1, 2, 2, 1], padding='SAME')  # [?,256,256,6] -> [?,128,128,64]
+    def discriminate(self, src):
+        h1 = tf.nn.conv2d(src, self.D_W1, strides=[1, 2, 2, 1], padding='SAME')  # [?,256,256,6] -> [?,128,128,64]
         h1 = self.D_bn1(h1)
         h1 = lrelu(h1)
 
