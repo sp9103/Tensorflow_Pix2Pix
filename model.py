@@ -38,7 +38,7 @@ class Pix2Pix:
         self.sess = sess
         self.batch_size = batch_size
         self.keep_prob = 0.5
-        self.image_shape = [256, 256, 3]
+        self.image_shape = [472, 472, 3]
         self.l1_weight = 100.0
 
         '''channels'''
@@ -164,12 +164,17 @@ class Pix2Pix:
 
     # Build the Network
     def _build_model(self):
+        #self.input_img = tf.placeholder(tf.float32, [self.batch_size] + self.image_shape)
+        #self.target_img = tf.placeholder(tf.float32, [self.batch_size] + self.image_shape)
         self.input_img = tf.placeholder(tf.float32, [self.batch_size] + self.image_shape)
         self.target_img = tf.placeholder(tf.float32, [self.batch_size] + self.image_shape)
 
-        gen_img = self.generate(self.input_img)
+        self.input_img_resized = tf.image.resize_images(self.input_img, [256, 256])
+        self.target_img_resized = tf.image.resize_images(self.target_img, [256, 256])
 
-        d_real = self.discriminate(self.target_img)
+        gen_img = self.generate(self.input_img_resized)
+
+        d_real = self.discriminate(self.target_img_resized)
         d_fake = self.discriminate(gen_img)
 
         self.D_loss = tf.reduce_mean(-(tf.log(d_real + EPS) + tf.log(1 - d_fake + EPS)))
@@ -283,8 +288,9 @@ class Pix2Pix:
     # Method for generating the fake images
     def sample_generator(self, input_image, batch_size=1):
         input_img = tf.placeholder(tf.float32, [batch_size] + self.image_shape)
+        input_img_resized = tf.image.resize_images(input_img, [256, 256])
 
-        h1 = h1_ = tf.nn.conv2d(input_img, self.G_W1, strides=[1, 2, 2, 1], padding='SAME')  # [?,256,256,3] -> [?,128,128,64]
+        h1 = h1_ = tf.nn.conv2d(input_img_resized, self.G_W1, strides=[1, 2, 2, 1], padding='SAME')  # [?,256,256,3] -> [?,128,128,64]
         h1 = lrelu(h1)
 
         h2 = tf.nn.conv2d(h1, self.G_W2, strides=[1, 2, 2, 1], padding='SAME')  # [?,128,128,64] -> [?,64,64,128]

@@ -33,8 +33,6 @@ def save_visualization(X, nh_nw, save_path='./vis/sample.jpg'):
 
 
 def main():
-    global_epoch = tf.Variable(0, trainable=False, name='global_step')
-
     args = parser.parse_args()
     result_dir = args.out_dir + '/result'
     ckpt_dir = args.out_dir + '/checkpoint'
@@ -60,7 +58,7 @@ def main():
     input_img = tf.placeholder(tf.float32, [batch_size] + [WIDTH, HEIGHT, 3])
     target_img = tf.placeholder(tf.float32, [batch_size] + [WIDTH, HEIGHT, 3])
     real_dataset = ImageCollector("../../../new_env_dataset", 1, 64, batch_size)  # Real data
-    simul_dataset = ImageCollector("../../../simul_dataset__", 1, 64, batch_size, bCollectSeg=True)
+    simul_dataset = ImageCollector("../../../simul_dataset__", 1, 64, batch_size)
 
     #########################
     # tensorboard summary   #
@@ -78,8 +76,11 @@ def main():
 
     writer = tf.summary.FileWriter(args.out_dir, sess.graph)
 
-    epoch = sess.run(global_epoch)
-    for i in range(50000):
+    real_dataset.StartLoadData()
+    simul_dataset.StartLoadData()
+
+    iter = 100000
+    for i in range(iter):
         real_data = real_dataset.getLoadedData()
         simul_data = simul_dataset.getLoadedData()
 
@@ -88,6 +89,9 @@ def main():
 
         loss_D = model.train_discrim(simul_img, rgb_img)  # Train Discriminator and get the loss value
         loss_GAN = model.train_gen(simul_img, rgb_img)  # Train Generator and get the loss value
+
+        if i % 100 == 0:
+            print('Step: [', i, '/', iter, '], D_loss: ', loss_D, ', G_loss_GAN: ', loss_GAN)
 
         if i % 500 == 0:
             generated_samples = model.sample_generator(rgb_img, batch_size=batch_size)
