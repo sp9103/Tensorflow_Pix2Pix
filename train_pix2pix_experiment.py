@@ -94,6 +94,7 @@ def main():
             print('Step: [', i, '/', iter, '], D_loss: ', loss_D, ', G_loss_GAN: ', loss_GAN)
 
         if i % 500 == 0:
+            print('Save generated sample')
             generated_samples = model.sample_generator(simul_img, batch_size=batch_size)
 
             summary = sess.run(summary_merged, feed_dict={dstep_loss: loss_D,
