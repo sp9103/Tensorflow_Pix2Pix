@@ -58,7 +58,7 @@ def main():
     input_img = tf.placeholder(tf.float32, [batch_size] + [472, 472, 3])
     target_img = tf.placeholder(tf.float32, [batch_size] + [WIDTH, HEIGHT, 3])
     real_dataset = ImageCollector("../../../new_env_dataset", 1, 64, batch_size)  # Real data
-    simul_dataset = ImageCollector("../../../simul_dataset__", 1, 64, batch_size)
+    simul_dataset = ImageCollector("../../../simul_dataset__", 1, 64, batch_size, bCollectSeg=True)
 
     #########################
     # tensorboard summary   #

@@ -72,6 +72,13 @@ class Pix2Pix:
         self.ch_G14 = 128
         self.ch_G15 = 64
         self.ch_G16 = 3
+
+        # Gen_Create Image
+        self.ch_CG0 = 128
+        self.ch_CG1 = 64
+        self.ch_CG2 = 32
+        self.ch_CG3 = 3
+
         # Discrim
         self.ch_D0 = 3
         self.ch_D1 = 64
@@ -127,7 +134,27 @@ class Pix2Pix:
         self.G_W15 = tf.Variable(tf.truncated_normal([4, 4, self.ch_G15, self.ch_G14 + self.ch_G2], stddev=0.02), name='G_W15')
         self.G_in15 = instance_norm(name="G_in15")
 
-        self.G_W16 = tf.Variable(tf.truncated_normal([4, 4, self.ch_G16, self.ch_G15 + self.ch_G1], stddev=0.02), name='G_W16')
+        # Additional Generator
+        self.CG_W1 = tf.Variable(tf.truncated_normal([1, 1, self.ch_CG0, self.ch_G15 + self.ch_G1], stddev=0.02), name="CG_W1")
+        self.CG_in1 = instance_norm(name="CG_in1")
+
+        # Additional Generator - Color
+        self.CGC_W2 = tf.Variable(tf.truncated_normal([4, 4, self.ch_CG0, self.ch_CG1], stddev=0.02), name="CGC_W2")
+        self.CGC_in2 = instance_norm(name="CGC_in2")
+
+        self.CGC_W3 = tf.Variable(tf.truncated_normal([4, 4, self.ch_CG1, self.ch_CG2], stddev=0.02), name="CGC_W3")
+        self.CGC_in3 = instance_norm(name="CGC_in3")
+
+        self.CGC_W4 = tf.Variable(tf.truncated_normal([7, 7, self.ch_CG3, self.ch_CG2], stddev=0.02), name="CGC_W4")
+
+        # Additional Generator - Segment
+        self.CGS_W2 = tf.Variable(tf.truncated_normal([4, 4, self.ch_CG1, self.ch_CG0], stddev=0.02), name="CGS_W2")
+        self.CGS_in2 = instance_norm(name="CGS_in2")
+
+        self.CGS_W3 = tf.Variable(tf.truncated_normal([4, 4, self.ch_CG2, self.ch_CG1], stddev=0.02), name="CGS_W3")
+        self.CGS_in3 = instance_norm(name="CGS_in3")
+
+        self.CGS_W4 = tf.Variable(tf.truncated_normal([7, 7, self.ch_CG3, self.ch_CG2], stddev=0.02), name="CGS_W4")
 
         # Discrim
         self.D_W1 = tf.Variable(tf.truncated_normal([4, 4, self.ch_D0, self.ch_D1], stddev=0.02), name='D_W1')
@@ -160,7 +187,10 @@ class Pix2Pix:
             self.G_W13,
             self.G_W14,
             self.G_W15,
-            self.G_W16
+            self.CG_W1,
+            self.CGC_W2,
+            self.CGC_W3,
+            self.CGC_W4
         ]
 
         self.discrim_params = [
@@ -267,10 +297,28 @@ class Pix2Pix:
         h15 = tf.nn.relu(h15)
         h15 = tf.concat([h15, h1_], axis=3)
 
+        """
         h16 = tf.nn.conv2d_transpose(h15, self.G_W16, output_shape=[self.batch_size, 256, 256, self.ch_G16], strides=[1, 2, 2, 1])  # [?,128,128,64+64] -> [?,256,256,3]
         h16 = tf.nn.tanh(h16)
+        """
 
-        return h16
+        h16 = tf.nn.conv2d(h15, self.CG_W1, strides=[1, 1, 1, 1], padding='SAME')  # [?,128,128,128] -> [?,128,128,128]
+        h16 = self.CG_in1(h16)
+        h16 = tf.nn.relu(h16)
+
+        # color
+        hc2 = tf.nn.conv2d(h16, self.CGC_W2, strides=[1, 1, 1, 1], padding='SAME')  # [?,128,128,128] -> [?,128,128,64]
+        hc2 = self.CGC_in2(hc2)
+        hc2 = tf.nn.relu(hc2)
+
+        hc3 = tf.nn.conv2d(hc2, self.CGC_W3, strides=[1, 1, 1, 1], padding='SAME')  # [?,128,128,64] -> [?,128,128,32]
+        hc3 = self.CGC_in3(hc3)
+        hc3 = tf.nn.relu(hc3)
+
+        hc4 = tf.nn.conv2d_transpose(hc3, self.CGC_W4, output_shape=[self.batch_size, 256, 256, self.ch_CG3], strides=[1, 2, 2, 1])  # [?,128,128,32] -> [?,256,256,3]
+        color = tf.nn.tanh(hc4)
+
+        return color
 
     def discriminate(self, src):
         h1 = tf.nn.conv2d(src, self.D_W1, strides=[1, 2, 2, 1], padding='SAME')  # [?,256,256,6] -> [?,128,128,64]
@@ -367,10 +415,29 @@ class Pix2Pix:
         h15 = tf.nn.relu(h15)
         h15 = tf.concat([h15, h1_], axis=3)
 
+        """
         h16 = tf.nn.conv2d_transpose(h15, self.G_W16, output_shape=[batch_size, 256, 256, self.ch_G16], strides=[1, 2, 2, 1])  # [?,128,128,64+64] -> [?,256,256,3]
         h16 = tf.nn.tanh(h16)
+        """
 
-        generated_samples = self.sess.run(h16, feed_dict={input_img: input_image})
+        h16 = tf.nn.conv2d(h15, self.CG_W1, strides=[1, 1, 1, 1], padding='SAME')  # [?,128,128,128] -> [?,128,128,128]
+        h16 = self.CG_in1(h16)
+        h16 = tf.nn.relu(h16)
+
+        # color
+        hc2 = tf.nn.conv2d(h16, self.CGC_W2, strides=[1, 1, 1, 1], padding='SAME')  # [?,128,128,128] -> [?,128,128,64]
+        hc2 = self.CGC_in2(hc2)
+        hc2 = tf.nn.relu(hc2)
+
+        hc3 = tf.nn.conv2d(hc2, self.CGC_W3, strides=[1, 1, 1, 1], padding='SAME')  # [?,128,128,64] -> [?,128,128,32]
+        hc3 = self.CGC_in3(hc3)
+        hc3 = tf.nn.relu(hc3)
+
+        hc4 = tf.nn.conv2d_transpose(hc3, self.CGC_W4, output_shape=[self.batch_size, 256, 256, self.ch_CG3],
+                                     strides=[1, 2, 2, 1])  # [?,128,128,32] -> [?,256,256,3]
+        color = tf.nn.tanh(hc4)
+
+        generated_samples = self.sess.run(color, feed_dict={input_img: input_image})
         return generated_samples
 
     # Train Generator and return the loss
