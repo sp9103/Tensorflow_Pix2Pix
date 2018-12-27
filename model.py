@@ -54,7 +54,7 @@ class Pix2Pix:
 
         '''channels'''
         # Gen_Encoding
-        self.ch_G0 = 3
+        self.ch_G0 = 4
         self.ch_G1 = 64
         self.ch_G2 = 128
         self.ch_G3 = 256
@@ -175,17 +175,18 @@ class Pix2Pix:
 
     # Build the Network
     def _build_model(self):
-        #self.input_img = tf.placeholder(tf.float32, [self.batch_size] + self.image_shape)
-        #self.target_img = tf.placeholder(tf.float32, [self.batch_size] + self.image_shape)
         self.input_img = tf.placeholder(tf.float32, [self.batch_size] + self.image_shape)
         self.target_img = tf.placeholder(tf.float32, [self.batch_size] + self.image_shape)
+        self.seg_img = tf.placeholder(tf.float32, [self.batch_size] + self.image_shape[:-1] + [1])
 
-        self.input_img_resized = tf.image.resize_images(self.input_img, [256, 256])
-        self.target_img_resized = tf.image.resize_images(self.target_img, [256, 256])
+        concat_img = tf.concat([self.input_img, self.seg_img], axis=3)
 
-        gen_img = self.generate(self.input_img_resized)
+        input_img_resized = tf.image.resize_images(concat_img, [256, 256])
+        target_img_resized = tf.image.resize_images(self.target_img, [256, 256])
 
-        d_real = self.discriminate(self.target_img_resized)
+        gen_img = self.generate(input_img_resized)
+
+        d_real = self.discriminate(target_img_resized)
         d_fake = self.discriminate(gen_img)
 
         self.D_loss = tf.reduce_mean(-(tf.log(d_real + EPS) + tf.log(1 - d_fake + EPS)))
@@ -201,7 +202,7 @@ class Pix2Pix:
         self.train_op_gen = tf.train.AdamOptimizer(self.learning_rate, beta1=0.5).minimize(self.G_loss, var_list=self.gen_params)
 
     def generate(self, input_img):
-        h1 = h1_ = tf.nn.conv2d(input_img, self.G_W1, strides=[1, 2, 2, 1], padding='SAME')  # [?,256,256,3] -> [?,128,128,64]
+        h1 = h1_ = tf.nn.conv2d(input_img, self.G_W1, strides=[1, 2, 2, 1], padding='SAME')  # [?,256,256,4] -> [?,128,128,64]
         h1 = lrelu(h1)
 
         h2 = tf.nn.conv2d(h1, self.G_W2, strides=[1, 2, 2, 1], padding='SAME')  # [?,128,128,64] -> [?,64,64,128]
@@ -297,9 +298,12 @@ class Pix2Pix:
         return h5
 
     # Method for generating the fake images
-    def sample_generator(self, input_image, batch_size=1):
+    def sample_generator(self, input_image, input_seg, batch_size=1):
         input_img = tf.placeholder(tf.float32, [batch_size] + self.image_shape)
-        input_img_resized = tf.image.resize_images(input_img, [256, 256])
+        input_segimg = tf.placeholder(tf.float32, [batch_size] + self.image_shape[:-1] + [1])
+        concat_img = tf.concat([input_img, input_segimg], axis=3)
+
+        input_img_resized = tf.image.resize_images(concat_img, [256, 256])
 
         h1 = h1_ = tf.nn.conv2d(input_img_resized, self.G_W1, strides=[1, 2, 2, 1], padding='SAME')  # [?,256,256,3] -> [?,128,128,64]
         h1 = lrelu(h1)
@@ -370,17 +374,17 @@ class Pix2Pix:
         h16 = tf.nn.conv2d_transpose(h15, self.G_W16, output_shape=[batch_size, 256, 256, self.ch_G16], strides=[1, 2, 2, 1])  # [?,128,128,64+64] -> [?,256,256,3]
         h16 = tf.nn.tanh(h16)
 
-        generated_samples = self.sess.run(h16, feed_dict={input_img: input_image})
+        generated_samples = self.sess.run(h16, feed_dict={input_img: input_image, input_segimg: input_seg})
         return generated_samples
 
     # Train Generator and return the loss
-    def train_gen(self, input_img, target_img):
+    def train_gen(self, input_img, target_img, seg_img):
         # _, loss_val_G = self.sess.run([self.train_op_gen, self.G_loss], feed_dict={self.input_img: input_img, self.target_img: target_img})
-        _, loss_val_GAN = self.sess.run([self.train_op_gen, self.G_loss_GAN], feed_dict={self.input_img: input_img, self.target_img: target_img})
+        _, loss_val_GAN = self.sess.run([self.train_op_gen, self.G_loss_GAN], feed_dict={self.input_img: input_img, self.target_img: target_img, self.seg_img: seg_img})
         # return loss_val_G
         return loss_val_GAN
 
     # Train Discriminator and return the loss
-    def train_discrim(self, input_img, target_img):
-        _, loss_val_D = self.sess.run([self.train_op_discrim, self.D_loss], feed_dict={self.input_img: input_img, self.target_img: target_img})
+    def train_discrim(self, input_img, target_img, seg_img):
+        _, loss_val_D = self.sess.run([self.train_op_discrim, self.D_loss], feed_dict={self.input_img: input_img, self.target_img: target_img, self.seg_img: seg_img})
         return loss_val_D

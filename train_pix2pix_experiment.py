@@ -58,7 +58,7 @@ def main():
     input_img = tf.placeholder(tf.float32, [batch_size] + [472, 472, 3])
     target_img = tf.placeholder(tf.float32, [batch_size] + [WIDTH, HEIGHT, 3])
     real_dataset = ImageCollector("../../../new_env_dataset", 1, 64, batch_size)  # Real data
-    simul_dataset = ImageCollector("../../../simul_dataset__", 1, 64, batch_size)
+    simul_dataset = ImageCollector("../../../simul_dataset__", 1, 64, batch_size, bCollectSeg=True)
 
     #########################
     # tensorboard summary   #
@@ -86,16 +86,17 @@ def main():
 
         rgb_img = real_data[1]
         simul_img = simul_data[1]
+        simul_seg = simul_data[2]
 
-        loss_D = model.train_discrim(simul_img, rgb_img)  # Train Discriminator and get the loss value
-        loss_GAN = model.train_gen(simul_img, rgb_img)  # Train Generator and get the loss value
+        loss_D = model.train_discrim(simul_img, rgb_img, simul_seg)  # Train Discriminator and get the loss value
+        loss_GAN = model.train_gen(simul_img, rgb_img, simul_seg)  # Train Generator and get the loss value
 
         if i % 100 == 0:
             print('Step: [', i, '/', iter, '], D_loss: ', loss_D, ', G_loss_GAN: ', loss_GAN)
 
         if i % 500 == 0:
             print('Save generated sample')
-            generated_samples = model.sample_generator(simul_img, batch_size=batch_size)
+            generated_samples = model.sample_generator(simul_img, simul_seg, batch_size=batch_size)
 
             summary = sess.run(summary_merged, feed_dict={dstep_loss: loss_D,
                                                           gstep_loss: loss_GAN,
