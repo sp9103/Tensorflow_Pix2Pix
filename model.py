@@ -40,6 +40,14 @@ def lrelu(X, leak=0.2):
     f2 = 0.5 * (1 - leak)
     return f1 * X + f2 * tf.abs(X)
 
+def add_noise(hidden):
+    hidden = tf.nn.dropout(
+        hidden,
+        0.9)
+    return hidden + tf.random_normal(
+        hidden.shape.as_list(),
+        mean=0.0,
+        stddev=0.2)
 
 class Pix2Pix:
     # Network Parameters
@@ -277,19 +285,23 @@ class Pix2Pix:
         h1 = tf.nn.conv2d(src, self.D_W1, strides=[1, 2, 2, 1], padding='SAME')  # [?,256,256,6] -> [?,128,128,64]
         h1 = self.D_in1(h1)
         h1 = lrelu(h1)
+        h1 = add_noise(h1)
 
         h2 = tf.nn.conv2d(h1, self.D_W2, strides=[1, 2, 2, 1], padding='SAME')  # [?,128,128,64] -> [?,64,64,128]
         h2 = self.D_in2(h2)
         h2 = lrelu(h2)
+        h2 = add_noise(h2)
 
         h3 = tf.nn.conv2d(h2, self.D_W3, strides=[1, 2, 2, 1], padding='SAME')  # [?,64,64,128] -> [?,32,32,256]
         h3 = self.D_in3(h3)
         h3 = lrelu(h3)
+        h3 = add_noise(h3)
 
         h4 = tf.pad(h3, [[0, 0], [1, 1], [1, 1], [0, 0]], mode='CONSTANT')  # [?,32,32,256] -> [?,31,31,512]
         h4 = tf.nn.conv2d(h4, self.D_W4, strides=[1, 1, 1, 1], padding='VALID')
         h4 = self.D_in4(h4)
         h4 = lrelu(h4)
+        h4 = add_noise(h4)
 
         h5 = tf.pad(h4, [[0, 0], [1, 1], [1, 1], [0, 0]], mode='CONSTANT')  # [?,31,31,256] -> [?,30,30,1]
         h5 = tf.nn.conv2d(h5, self.D_W5, strides=[1, 1, 1, 1], padding='VALID')
