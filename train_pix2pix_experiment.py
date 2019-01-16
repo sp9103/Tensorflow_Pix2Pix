@@ -9,6 +9,7 @@ import numpy as np
 from model import Pix2Pix
 import scipy.misc
 from data_factory.dataset_factory import ImageCollector
+import cv2
 
 parser = argparse.ArgumentParser(description='Easy Implementation of Pix2Pix + Test with graspgan dataset')
 
@@ -57,8 +58,9 @@ def main():
 
     input_img = tf.placeholder(tf.float32, [batch_size] + [472, 472, 3])
     target_img = tf.placeholder(tf.float32, [batch_size] + [WIDTH, HEIGHT, 3])
+    seg_img = tf.placeholder(tf.float32, [batch_size] + [472, 472, 1])
     real_dataset = ImageCollector("../../../new_env_dataset", 1, 64, batch_size)  # Real data
-    simul_dataset = ImageCollector("../../../simul_dataset__", 1, 64, batch_size, bCollectSeg=True)
+    simul_dataset = ImageCollector("../../../simul_dataset_", 1, 64, batch_size, bCollectSeg=True)
 
     #########################
     # tensorboard summary   #
@@ -67,11 +69,13 @@ def main():
     gstep_loss = tf.placeholder(tf.float32)
     image_shaped_input = tf.reshape(tf.image.resize_images(input_img, [WIDTH, HEIGHT]), [-1, WIDTH, HEIGHT, 3])
     image_shaped_output = tf.reshape(target_img, [-1, WIDTH, HEIGHT, 3])
+    image_shaped_seg = tf.concat([seg_img, seg_img, seg_img], axis=3)
+    image_shaped_seg = tf.reshape(tf.image.resize_images(image_shaped_seg, [WIDTH, HEIGHT]), [-1, WIDTH, HEIGHT, 3])
 
     tf.summary.scalar('d_step_loss', dstep_loss)
     tf.summary.scalar('g_step_loss', gstep_loss)
 
-    tf.summary.image('input / output', tf.concat([image_shaped_input, image_shaped_output], axis=2), 3)
+    tf.summary.image('input / output', tf.concat([image_shaped_input, image_shaped_seg, image_shaped_output], axis=2), 3)
     summary_merged = tf.summary.merge_all()
 
     writer = tf.summary.FileWriter(args.out_dir, sess.graph)
@@ -79,7 +83,7 @@ def main():
     real_dataset.StartLoadData()
     simul_dataset.StartLoadData()
 
-    iter = 100000
+    iter = 1000000
     for i in range(iter):
         real_data = real_dataset.getLoadedData()
         simul_data = simul_dataset.getLoadedData()
@@ -101,7 +105,8 @@ def main():
             summary = sess.run(summary_merged, feed_dict={dstep_loss: loss_D,
                                                           gstep_loss: loss_GAN,
                                                           input_img: simul_img,
-                                                          target_img: generated_samples})
+                                                          target_img: generated_samples,
+                                                          seg_img: simul_seg})
             writer.add_summary(summary, i)
 
         if i % 5000 == 0:
